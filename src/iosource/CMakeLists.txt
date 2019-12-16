@@ -17,7 +17,7 @@ set(iosource_SRCS
     PktSrc.cc
     )
 
-if ( HAVE_EPOLL_H )
+if ( HAVE_EPOLL )
   set(iosource_SRCS ${iosource_SRCS} ManagerEpoll.cc)
 elseif ( HAVE_KQUEUE )
   set(iosource_SRCS ${iosource_SRCS} ManagerKqueue.cc)

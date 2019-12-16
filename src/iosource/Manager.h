@@ -6,7 +6,7 @@
 
 #include "ManagerBase.h"
 
-#if defined(HAVE_EPOLL_H)
+#if defined(HAVE_EPOLL)
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 #elif defined(HAVE_KQUEUE)
@@ -77,7 +77,7 @@ private:
 	int event_queue = -1;
 	std::map<int, IOSource*> fd_map;
 
-#if defined(HAVE_EPOLL_H)
+#if defined(HAVE_EPOLL)
 	std::vector<epoll_event> events;
 #elif defined(HAVE_KQUEUE)
 	// This is only used for the output of the call to kqueue in FindReadySources().
