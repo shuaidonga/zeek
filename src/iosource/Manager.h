@@ -8,7 +8,6 @@
 
 #if defined(HAVE_EPOLL)
 #include <sys/epoll.h>
-#include <sys/timerfd.h>
 #elif defined(HAVE_KQUEUE)
 #include <sys/event.h>
 #else
