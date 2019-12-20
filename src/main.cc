@@ -308,6 +308,8 @@ void done_with_network()
 			abort();
 			}
 #endif
+
+	ZEEK_LSAN_DISABLE();
 	}
 
 void terminate_bro()
@@ -406,6 +408,7 @@ static void bro_new_handler()
 
 int main(int argc, char** argv)
 	{
+	ZEEK_LSAN_DISABLE();
 	std::set_new_handler(bro_new_handler);
 
 	// When running unit tests, the first argument on the command line must be
@@ -1139,6 +1142,7 @@ int main(int argc, char** argv)
 				mem_net_start_malloced / 1024 / 1024);
 			}
 
+		ZEEK_LSAN_ENABLE();
 		net_run();
 
 		double time_net_done = current_time(true);;
