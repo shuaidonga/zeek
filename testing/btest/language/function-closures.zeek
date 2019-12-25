@@ -1,4 +1,4 @@
-# @TEST-EXEC: zeek -b %INPUT >out
+# @TEST-EXEC: zeek -b -r $TRACES/http/get.trace %INPUT >out
 # @TEST-EXEC: btest-diff out
 
 global numberone : count = 1;
@@ -34,7 +34,7 @@ function dog_maker(name: string, weight: count) : function (action: string)
 	return dog;
 	}
 
-event zeek_init()
+event new_connection(cn: connection)
 	{
 	# basic
 	local one = make_count_upper(1);
@@ -170,5 +170,6 @@ event zeek_init()
 	other_dog("bark");
 	
 	dog("bark");
+	terminate();
 	} # zeek_init
 

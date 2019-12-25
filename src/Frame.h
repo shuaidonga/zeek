@@ -149,7 +149,7 @@ public:
 	 * *selection* have been cloned. All other values are made to be
 	 * null.
 	 */
-	Frame* SelectiveClone(const id_list& selection) const;
+	Frame* SelectiveClone(const id_list& selection, BroFunc* func) const;
 
 	/**
 	 * Serializes the Frame into a Broker representation.
@@ -215,6 +215,14 @@ public:
 	void SetDelayed()	{ delayed = true; }
 	bool HasDelayed() const	{ return delayed; }
 
+	/**
+	 * Track a new function that refers to this frame for use as a closure.
+	 * This frame's destructor will then upgrade that functions reference
+	 * from weak to strong (by making a copy).  The initial use of
+	 * weak references prevents unbreakable circular references that
+	 * otherwise cause memory leaks.
+	 */
+	void AddFunctionWithClosureRef(BroFunc* func);
 
 private:
 	/** Have we captured this id? */
@@ -244,6 +252,7 @@ private:
 
 	/** The enclosing frame of this frame. */
 	Frame* closure;
+	bool weak_closure_ref = false;
 
 	/** ID's used in this frame from the enclosing frame. */
 	id_list outer_ids;
@@ -268,6 +277,8 @@ private:
 	Trigger* trigger;
 	const CallExpr* call;
 	bool delayed;
+
+	std::vector<BroFunc*> functions_with_closure_frame_reference;
 };
 
 /**

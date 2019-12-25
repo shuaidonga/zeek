@@ -31,14 +31,28 @@ Frame::Frame(int arg_size, const BroFunc* func, const val_list* fn_args)
 
 Frame::~Frame()
 	{
+	for ( auto& func : functions_with_closure_frame_reference )
+		{
+		func->StrengthenClosureReference(this);
+		Unref(func);
+		}
+
 	// Deleting a Frame that is a view is a no-op.
 	Unref(trigger);
-	Unref(closure);
+
+	if ( ! weak_closure_ref )
+		Unref(closure);
 
 	for ( auto& i : outer_ids )
 		Unref(i);
 
 	Release();
+	}
+
+void Frame::AddFunctionWithClosureRef(BroFunc* func)
+	{
+	::Ref(func);
+	functions_with_closure_frame_reference.emplace_back(func);
 	}
 
 void Frame::SetElement(int n, Val* v)
@@ -62,8 +76,15 @@ void Frame::SetElement(const ID* id, Val* v)
 	if ( offset_map.size() )
 		{
 		auto where = offset_map.find(std::string(id->Name()));
+
 		if ( where != offset_map.end() )
-			SetElement(where->second, v);
+			{
+			// Need to add a Ref to 'v' since the SetElement() for
+			// id->Offset() below is otherwise responsible for keeping track
+			// of the implied reference count of the passed-in 'v' argument.
+			// i.e. if we end up storing it twice, we need an addition Ref.
+			SetElement(where->second, v->Ref());
+			}
 		}
 
 	SetElement(id->Offset(), v);
@@ -145,7 +166,23 @@ Frame* Frame::Clone() const
 	return other;
 	}
 
-Frame* Frame::SelectiveClone(const id_list& selection) const
+static bool val_is_func(Val* v, BroFunc* func)
+	{
+	if ( v->Type()->Tag() != TYPE_FUNC )
+		return false;
+
+	return v->AsFunc() == func;
+	}
+
+static Val* clone_if_not_func(Val* v, BroFunc* func)
+	{
+	if ( val_is_func(v, func) )
+		return v->Ref();
+	else
+		return v->Clone();
+	}
+
+Frame* Frame::SelectiveClone(const id_list& selection, BroFunc* func) const
 	{
 	if ( selection.length() == 0 )
 		return nullptr;
@@ -171,7 +208,8 @@ Frame* Frame::SelectiveClone(const id_list& selection) const
 			auto where = offset_map.find(std::string(id->Name()));
 			if ( where != offset_map.end() )
 				{
-				other->frame[where->second] = frame[where->second]->Clone();
+				auto v = clone_if_not_func(frame[where->second]->Clone(), func);
+				other->SetElement(where->second, v);
 				continue;
 				}
 			}
@@ -179,7 +217,8 @@ Frame* Frame::SelectiveClone(const id_list& selection) const
 		if ( ! frame[id->Offset()] )
 			reporter->InternalError("Attempted to clone an id ('%s') with no associated value.", id->Name());
 
-		other->frame[id->Offset()] = frame[id->Offset()]->Clone();
+		auto v = clone_if_not_func(frame[id->Offset()], func);
+		other->SetElement(id->Offset(), v);
 		}
 
 	/**
@@ -379,6 +418,7 @@ std::pair<bool, Frame*> Frame::Unserialize(const broker::vector& data)
 	// Frame takes ownership of unref'ing elements in outer_ids
 	rf->outer_ids = std::move(outer_ids);
 	rf->closure = closure;
+	rf->weak_closure_ref = false;
 
 	for ( int i = 0; i < frame_size; ++i )
 		{
@@ -437,7 +477,7 @@ void Frame::CaptureClosure(Frame* c, id_list arg_outer_ids)
 
 	closure = c;
 	if ( closure )
-		Ref(closure);
+		weak_closure_ref = true;
 
 	/**
 	 * Want to capture closures by copy?
